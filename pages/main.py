@@ -15,7 +15,7 @@ import re
 from collections import Counter
 from dotenv import load_dotenv
 from openai import OpenAI
-from database import get_user_role, save_log
+from pages.database import get_user_role, save_log
 
 ## 변수
 # 환경변수 로드

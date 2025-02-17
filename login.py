@@ -1,5 +1,5 @@
 import streamlit as st
-from database import register_user, login_user, get_user_role
+from pages.database import register_user, login_user, get_user_role
 
 # ✅ 페이지 설정
 st.set_page_config(page_title="🔑 회원가입 및 로그인", layout="centered")

@@ -1,6 +1,6 @@
 import streamlit as st
 import sqlite3
-from database import get_user_role, DB_NAME
+from pages.database import get_user_role, DB_NAME
 
 # ✅ 로그인 상태 확인 및 관리자 권한 체크
 if "logged_in" not in st.session_state or not st.session_state["logged_in"]:
