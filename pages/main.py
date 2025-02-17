@@ -24,7 +24,15 @@ from pages.database import get_user_role, save_log
 ## 변수
 # 환경변수 로드
 load_dotenv()
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+# API 키 불러오기 (로컬 & Streamlit Cloud 대응)
+if "OPENAI_API_KEY" in st.secrets:  # Streamlit Cloud 환경
+    OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
+else:
+    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+# API 키 검증
+if not OPENAI_API_KEY:
+    st.error("❌ OPENAI_API_KEY를 찾을 수 없습니다! 환경 변수를 확인하세요.")
+    st.stop()
 
 # OpenAI 클라이언트 초기화
 client = OpenAI(api_key=OPENAI_API_KEY)
