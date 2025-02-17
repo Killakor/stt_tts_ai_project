@@ -101,42 +101,42 @@ def get_gpt_response(user_text):
     )
     return response.choices[0].message.content
 
-# 사용가능 오디오 입력장치 확인 함수
-def get_input_device():
-    try:
-        devices = sd.query_devices()
-        input_devices = [d for d in devices if d['max_input_channels'] > 0]  # 입력 채널이 있는 장치만 필터링
+# # 사용가능 오디오 입력장치 확인 함수
+# def get_input_device():
+#     try:
+#         devices = sd.query_devices()
+#         input_devices = [d for d in devices if d['max_input_channels'] > 0]  # 입력 채널이 있는 장치만 필터링
         
-        if not input_devices:
-            return None  # 사용 가능한 입력 장치가 없을 경우
+#         if not input_devices:
+#             return None  # 사용 가능한 입력 장치가 없을 경우
 
-        return input_devices[0]['index']  # 기본적으로 첫 번째 입력 장치 반환
-    except Exception as e:
-        print(f"⚠️ 오디오 장치 확인 중 오류 발생: {e}")
-        return None
+#         return input_devices[0]['index']  # 기본적으로 첫 번째 입력 장치 반환
+#     except Exception as e:
+#         print(f"⚠️ 오디오 장치 확인 중 오류 발생: {e}")
+#         return None
 
-# 녹음 함수 (디바이스가 없을 경우 예외 처리)
-def record_audio(duration, sample_rate):
-    input_device = get_input_device()
+# # 녹음 함수 (디바이스가 없을 경우 예외 처리)
+# def record_audio(duration, sample_rate):
+#     input_device = get_input_device()
 
-    if input_device is None:
-        st.warning("⚠️ 사용 가능한 오디오 입력 장치가 없습니다! 마이크를 연결해주세요.")
-        return None  # 녹음 실행하지 않음
+#     if input_device is None:
+#         st.warning("⚠️ 사용 가능한 오디오 입력 장치가 없습니다! 마이크를 연결해주세요.")
+#         return None  # 녹음 실행하지 않음
 
-    try:
-        # 마이크 녹음 실행
-        recorded_audio = sd.rec(
-            int(duration * sample_rate),
-            samplerate=sample_rate,
-            channels=2,
-            dtype=np.int16,
-            device=input_device  # 올바른 장치 사용
-        )
-        sd.wait()
-        return recorded_audio
-    except sd.PortAudioError as e:
-        st.error(f"⚠️ 오디오 장치 오류 발생: {e}")
-        return None
+#     try:
+#         # 마이크 녹음 실행
+#         recorded_audio = sd.rec(
+#             int(duration * sample_rate),
+#             samplerate=sample_rate,
+#             channels=2,
+#             dtype=np.int16,
+#             device=input_device  # 올바른 장치 사용
+#         )
+#         sd.wait()
+#         return recorded_audio
+#     except sd.PortAudioError as e:
+#         st.error(f"⚠️ 오디오 장치 오류 발생: {e}")
+#         return None
 
 # 파일 지정 경로 생성 함수
 def generate_file_path(id, file_name, extension):
@@ -256,77 +256,77 @@ with tab1:
 with tab2:
     st.subheader("🎤 실시간 녹음")
 
-    # 슬라이더 상태 유지 (페이지 리로드 없이 값만 업데이트)
-    duration = st.slider("녹음 길이 (초)", 30, 1200, st.session_state["slider_value"])
+    # # 슬라이더 상태 유지 (페이지 리로드 없이 값만 업데이트)
+    # duration = st.slider("녹음 길이 (초)", 30, 1200, st.session_state["slider_value"])
 
-    st.session_state.update({"slider_value": duration})
-    sample_rate = 44100  
+    # st.session_state.update({"slider_value": duration})
+    # sample_rate = 44100  
 
-    if st.button("🎙️ 녹음 시작"):
-        with st.spinner(f"🎤 {duration}초 동안 녹음 중..."):
-            recorded_file_path = generate_file_path(id, "recorded_audio", "wav")
-            recorded_audio = record_audio(duration, sample_rate)
+    # if st.button("🎙️ 녹음 시작"):
+    #     with st.spinner(f"🎤 {duration}초 동안 녹음 중..."):
+    #         recorded_file_path = generate_file_path(id, "recorded_audio", "wav")
+    #         recorded_audio = record_audio(duration, sample_rate)
 
-        if recorded_audio is not None:
-            with wave.open(recorded_file_path, 'wb') as wf:
-                wf.setnchannels(2)
-                wf.setsampwidth(2)
-                wf.setframerate(sample_rate)
-                wf.writeframes(recorded_audio.tobytes())
+    #     if recorded_audio is not None:
+    #         with wave.open(recorded_file_path, 'wb') as wf:
+    #             wf.setnchannels(2)
+    #             wf.setsampwidth(2)
+    #             wf.setframerate(sample_rate)
+    #             wf.writeframes(recorded_audio.tobytes())
 
-            st.success(f"🎤 {duration}초 동안 녹음이 완료되었습니다!")
+    #         st.success(f"🎤 {duration}초 동안 녹음이 완료되었습니다!")
 
-        with st.spinner("🛠️ 음성을 텍스트로 변환 중입니다..."):
-            with open(recorded_file_path, "rb") as audio_file:
-                user_text = transcribe_audio(audio_file)
+    #     with st.spinner("🛠️ 음성을 텍스트로 변환 중입니다..."):
+    #         with open(recorded_file_path, "rb") as audio_file:
+    #             user_text = transcribe_audio(audio_file)
 
-        st.text_area("📌 전체 음성 내용", user_text, height=500)
+    #     st.text_area("📌 전체 음성 내용", user_text, height=500)
 
-        # GPT 요약문 생성
-        with st.spinner("🤖 변환된 음성에 대한 요약문을 생성 중입니다..."):
-            summary_text = generate_summary(user_text)
+    #     # GPT 요약문 생성
+    #     with st.spinner("🤖 변환된 음성에 대한 요약문을 생성 중입니다..."):
+    #         summary_text = generate_summary(user_text)
 
-        # GPT 응답 생성
-        with st.spinner("🤖 GPT 응답 생성 중입니다..."):
-            response = get_gpt_response(user_text)
+    #     # GPT 응답 생성
+    #     with st.spinner("🤖 GPT 응답 생성 중입니다..."):
+    #         response = get_gpt_response(user_text)
 
-        col1, col2 = st.columns(2)
+    #     col1, col2 = st.columns(2)
 
-        with col1:
-            st.subheader("📜 대화 요약 결과")
-            st.write(summary_text)
-            st.download_button("📥 요약 파일 다운로드", data=summary_text, file_name=f"{id}_summary.txt")
+    #     with col1:
+    #         st.subheader("📜 대화 요약 결과")
+    #         st.write(summary_text)
+    #         st.download_button("📥 요약 파일 다운로드", data=summary_text, file_name=f"{id}_summary.txt")
 
-        with col2:
-            # 워드클라우드 생성
-            with st.spinner("☁️ 키워드를 생성 중입니다..."):
-                wordcloud = generate_wordcloud(user_text)
-                wordcloud_path = generate_file_path(id, "wordcloud", "png")
-                wordcloud.to_file(wordcloud_path)
+    #     with col2:
+    #         # 워드클라우드 생성
+    #         with st.spinner("☁️ 키워드를 생성 중입니다..."):
+    #             wordcloud = generate_wordcloud(user_text)
+    #             wordcloud_path = generate_file_path(id, "wordcloud", "png")
+    #             wordcloud.to_file(wordcloud_path)
 
-                fig, ax = plt.subplots(figsize=(6, 3))
-                ax.imshow(wordcloud, interpolation="bilinear")
-                ax.axis("off")
-                st.subheader("☁️ 핵심 키워드")
-                st.pyplot(fig)
+    #             fig, ax = plt.subplots(figsize=(6, 3))
+    #             ax.imshow(wordcloud, interpolation="bilinear")
+    #             ax.axis("off")
+    #             st.subheader("☁️ 핵심 키워드")
+    #             st.pyplot(fig)
 
-        # TTS 변환 및 다운로드
-        with st.spinner("🔊 텍스트를 음성으로 변환 중입니다..."):
-            tts = text_to_speech(summary_text)
-            audio_summary_path = generate_file_path(id, "summary_audio", "mp3")
-            tts.save(audio_summary_path)
+    #     # TTS 변환 및 다운로드
+    #     with st.spinner("🔊 텍스트를 음성으로 변환 중입니다..."):
+    #         tts = text_to_speech(summary_text)
+    #         audio_summary_path = generate_file_path(id, "summary_audio", "mp3")
+    #         tts.save(audio_summary_path)
 
-        with open(audio_summary_path, "rb") as audio_file:
-            st.download_button("📥 요약 음성 다운로드", data=audio_file, file_name=f"{id}_summary_audio.mp3")
+    #     with open(audio_summary_path, "rb") as audio_file:
+    #         st.download_button("📥 요약 음성 다운로드", data=audio_file, file_name=f"{id}_summary_audio.mp3")
 
-        # 로그 저장 (파일명 & 데이터 수정)
-        save_log(
-            id=id,
-            input_type="실시간 녹음",
-            original_text=user_text,
-            summary_text=summary_text,
-            wordcloud_image=wordcloud_path,
-            gpt_response=response,
-            audio_summary_path=audio_summary_path,
-            audio_response_path="N/A"
-        )
+    #     # 로그 저장 (파일명 & 데이터 수정)
+    #     save_log(
+    #         id=id,
+    #         input_type="실시간 녹음",
+    #         original_text=user_text,
+    #         summary_text=summary_text,
+    #         wordcloud_image=wordcloud_path,
+    #         gpt_response=response,
+    #         audio_summary_path=audio_summary_path,
+    #         audio_response_path="N/A"
+    #     )
