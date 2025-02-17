@@ -102,11 +102,13 @@ if selected_user:
             st.warning("🚨 변경된 사항이 없습니다.")
 
 # ✅ 관리자용 홈 이동 버튼
-st.sidebar.title("📌 메뉴")
+st.sidebar.title("메뉴")
 st.sidebar.info(f"🔑 **{id}님 (관리자)**")
 
 if st.sidebar.button("🏠 메인 페이지 이동"):
-    st.switch_page("main.py")
+    st.session_state["id"] = id
+    st.session_state["logged_in"] = True
+    st.switch_page("pages/main.py")
 
 if st.sidebar.button("🔒 로그아웃"):
     st.session_state["logged_in"] = False
