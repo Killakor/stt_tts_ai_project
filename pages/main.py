@@ -1,6 +1,6 @@
 import streamlit as st
 import numpy as np
-import sounddevice as sd
+# import sounddevice as sd
 import tempfile
 import wave
 from langchain_openai import ChatOpenAI
