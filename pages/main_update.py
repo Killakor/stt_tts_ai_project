@@ -1,12 +1,16 @@
 import streamlit as st
 import numpy as np
-import sounddevice as sd
-import tempfile
+# import sounddevice as sd
+from streamlit_webrtc import webrtc_streamer, WebRtcMode, AudioProcessorBase
+import av
+import os
 import wave
+import time
+from pathlib import Path
+import tempfile
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import PromptTemplate 
 from gtts import gTTS
-import os
 from datetime import datetime
 import matplotlib.pyplot as plt
 import altair as alt
@@ -29,10 +33,29 @@ else:
 # OpenAI 클라이언트 초기화
 client = OpenAI(api_key=OPENAI_API_KEY)
 
+
+# 세션 상태 유지 (캐시 사용)
+@st.cache_data
+def get_cached_id():
+    return st.session_state.get("id", None)
+
+if "id" not in st.session_state or st.session_state["id"] is None:
+    st.session_state["id"] = get_cached_id()
+
+id = st.session_state.get("id", None)
+
+if id is None:
+    st.error("❌ 사용자 ID가 없습니다. 로그인이 필요합니다.")
+    st.stop()
+
+# WebRTC 세션 상태 유지
+if "webrtc_active" not in st.session_state:
+    st.session_state["webrtc_active"] = False
+
+
 # 로그인 상태 확인
 if "logged_in" not in st.session_state or not st.session_state["logged_in"]:
     st.error("🚨 로그인이 필요합니다!")
-    st.stop()
 
 # 세션 상태 초기화 (필수)
 if "logged_in" not in st.session_state:
@@ -53,16 +76,31 @@ if user_role == "admin":
 else: 
     name = "입시매니저"
 
+# ✅ ID 유지하는 함수
+def get_cached_id():
+    return st.session_state.get("cached_id", None)
+
+# ✅ 세션 ID 유지 (캐시 활용)
+if "id" in st.session_state and st.session_state["id"]:
+    st.session_state["cached_id"] = st.session_state["id"]
+elif "cached_id" in st.session_state and st.session_state["cached_id"]:
+    st.session_state["id"] = st.session_state["cached_id"]
+else:
+    st.session_state["id"] = get_cached_id()
+    if st.session_state["id"] is None:
+        st.error("❌ 사용자 ID가 없습니다. 로그인이 필요합니다.")
+        st.stop()
 
 ## 함수
 # STT 처리 함수
 def transcribe_audio(audio_file):
     """음성 파일을 Whisper API로 변환하는 함수"""
-    result = client.audio.transcriptions.create(
-        model="whisper-1",
-        file=audio_file,
-        response_format="text"
-    )
+    with open(audio_file_path, "rb") as audio_file:
+        result = client.audio.transcriptions.create(
+            model="whisper-1",
+            file=audio_file,
+            response_format="text"
+        )
     return result  # 텍스트 변환 결과 반환
 
 # GPT 요약 함수
@@ -101,46 +139,9 @@ def get_gpt_response(user_text):
     )
     return response.choices[0].message.content
 
-# 사용가능 오디오 입력장치 확인 함수
-def get_input_device():
-    try:
-        devices = sd.query_devices()
-        input_devices = [d for d in devices if d['max_input_channels'] > 0]  # 입력 채널이 있는 장치만 필터링
-        
-        if not input_devices:
-            return None  # 사용 가능한 입력 장치가 없을 경우
-
-        return input_devices[0]['index']  # 기본적으로 첫 번째 입력 장치 반환
-    except Exception as e:
-        print(f"⚠️ 오디오 장치 확인 중 오류 발생: {e}")
-        return None
-
-# 녹음 함수 (디바이스가 없을 경우 예외 처리)
-def record_audio(duration, sample_rate):
-    input_device = get_input_device()
-
-    if input_device is None:
-        st.warning("⚠️ 사용 가능한 오디오 입력 장치가 없습니다! 마이크를 연결해주세요.")
-        return None  # 녹음 실행하지 않음
-
-    try:
-        # 마이크 녹음 실행
-        recorded_audio = sd.rec(
-            int(duration * sample_rate),
-            samplerate=sample_rate,
-            channels=2,
-            dtype=np.int16,
-            device=input_device  # 올바른 장치 사용
-        )
-        sd.wait()
-        return recorded_audio
-    except sd.PortAudioError as e:
-        st.error(f"⚠️ 오디오 장치 오류 발생: {e}")
-        return None
-
 # 파일 지정 경로 생성 함수
 def generate_file_path(id, file_name, extension):
-    """사용자 ID와 현재 타임스탬프 기반으로 고유한 파일명을 생성하는 함수"""
+
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     folder_path = os.path.join("logs", id)
     
@@ -149,6 +150,47 @@ def generate_file_path(id, file_name, extension):
 
     file_name = f"{id}_{file_name}_{timestamp}.{extension}"
     return os.path.join(folder_path, file_name)
+
+
+# # 25/02/17 sounddevice 라이브러리를 사용한 녹음 기능은 Streamlit WebRTC로 대체함
+# # 사용가능 오디오 입력장치 확인 함수
+# def get_input_device():
+#     try:
+#         devices = sd.query_devices()
+#         input_devices = [d for d in devices if d['max_input_channels'] > 0]  # 입력 채널이 있는 장치만 필터링
+        
+#         if not input_devices:
+#             return None  # 사용 가능한 입력 장치가 없을 경우
+
+#         return input_devices[0]['index']  # 기본적으로 첫 번째 입력 장치 반환
+#     except Exception as e:
+#         print(f"⚠️ 오디오 장치 확인 중 오류 발생: {e}")
+#         return None
+
+# # 녹음 함수 (디바이스가 없을 경우 예외 처리)
+# def record_audio(duration, sample_rate):
+#     input_device = get_input_device()
+
+#     if input_device is None:
+#         st.warning("⚠️ 사용 가능한 오디오 입력 장치가 없습니다! 마이크를 연결해주세요.")
+#         return None  # 녹음 실행하지 않음
+
+#     try:
+#         # 마이크 녹음 실행
+#         recorded_audio = sd.rec(
+#             int(duration * sample_rate),
+#             samplerate=sample_rate,
+#             channels=2,
+#             dtype=np.int16,
+#             device=input_device  # 올바른 장치 사용
+#         )
+#         sd.wait()
+#         return recorded_audio
+#     except sd.PortAudioError as e:
+#         st.error(f"⚠️ 오디오 장치 오류 발생: {e}")
+#         return None
+
+
 
 
 ## 메인
@@ -167,8 +209,12 @@ if st.session_state["logged_in"]:
     if user_role == "admin":
         page = st.sidebar.radio("이동할 페이지를 선택하세요", ["메인 페이지", "백오피스"])
         if page == "사용자 메인":
+            st.session_state["id"] = id
+            st.session_state["logged_in"] = True
             st.switch_page("pages/backoffice.py")
         else:
+            st.session_state["id"] = id
+            st.session_state["logged_in"] = True
             st.switch_page("pages/main.py")
 
     # 로그아웃 버튼 추가
@@ -188,6 +234,7 @@ with tab1:
 
     if uploaded_file is not None:
         with st.spinner("🛠️ 음성을 텍스트로 변환 중입니다..."):
+
             # 파일 저장 후 Whisper API 호출
             audio_file_path = generate_file_path(id, "uploaded_audio", uploaded_file.name.split('.')[-1])
 
@@ -255,27 +302,58 @@ with tab1:
 ### **TAB 2: 실시간 녹음**
 with tab2:
     st.subheader("🎤 실시간 녹음")
+    # WebRTC 스트림 생성 (세션 유지)
+    webrtc_ctx = webrtc_streamer(
+        key="record_audio",
+        mode=WebRtcMode.RECVONLY,
+        audio_receiver_size=1024,
+        media_stream_constraints={"audio": True, "video": False},
+    )
+    # 녹음 상태 추가
+    if "recording" not in st.session_state:
+        st.session_state["recording"] = False
 
-    # 슬라이더 상태 유지 (페이지 리로드 없이 값만 업데이트)
-    duration = st.slider("녹음 길이 (초)", 30, 1200, st.session_state["slider_value"])
+    # 녹음이 진행 중인지 상태 확인 (WebRTC의 START 버튼과 동기화)
+    st.session_state["webrtc_active"] = True if webrtc_ctx and webrtc_ctx.state.playing else False
 
-    st.session_state.update({"slider_value": duration})
-    sample_rate = 44100  
+    # 녹음 상태 표시
+    if st.session_state["webrtc_active"]:
+        st.info("🔴 음성녹음 중입니다...")
+    else:
+        st.info("▶️ START 버튼을 눌러 음성녹음을 시작하세요.")
 
-    if st.button("🎙️ 녹음 시작"):
-        with st.spinner(f"🎤 {duration}초 동안 녹음 중..."):
+    # 녹음이 끝났을 때 처리
+    if not st.session_state["webrtc_active"] and webrtc_ctx.audio_receiver:
+        with st.spinner(f"🎤 음성녹음 파일을 저장 중입니다..."):
             recorded_file_path = generate_file_path(id, "recorded_audio", "wav")
-            recorded_audio = record_audio(duration, sample_rate)
 
-        if recorded_audio is not None:
-            with wave.open(recorded_file_path, 'wb') as wf:
-                wf.setnchannels(2)
-                wf.setsampwidth(2)
-                wf.setframerate(sample_rate)
-                wf.writeframes(recorded_audio.tobytes())
+        ## sounddevice 라이브러리를 사용한 녹음 기능은 Streamlit WebRTC로 대체함
+        #     recorded_audio = record_audio(duration, sample_rate)
 
-            st.success(f"🎤 {duration}초 동안 녹음이 완료되었습니다!")
+        # if recorded_audio is not None:
+        #     with wave.open(recorded_file_path, 'wb') as wf:
+        #         wf.setnchannels(2)
+        #         wf.setsampwidth(2)
+        #         wf.setframerate(sample_rate)
+        #         wf.writeframes(recorded_audio.tobytes())
 
+        #     st.success(f"🎤 {duration}초 동안 녹음이 완료되었습니다!")
+
+            frames = webrtc_ctx.audio_receiver.get_frames()
+            if frames:
+            # WebRTC의 녹음 데이터를 저장
+                with wave.open(str(recorded_file_path), "wb") as wf:
+                    wf.setnchannels(2)
+                    wf.setsampwidth(2)
+                    wf.setframerate(44100)
+                    wf.writeframes(webrtc_ctx.audio_receiver.get_frames()[0].to_ndarray())
+
+                st.success(f"🎤 음성녹음이 완료되었습니다!")
+                st.audio(str(recorded_file_path), format="audio/wav")
+            else:
+                st.error("❌ 오류: 녹음된 오디오 데이터가 없습니다. 다시 시도하세요.")
+
+        # STT 변환
         with st.spinner("🛠️ 음성을 텍스트로 변환 중입니다..."):
             with open(recorded_file_path, "rb") as audio_file:
                 user_text = transcribe_audio(audio_file)
